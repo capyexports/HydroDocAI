@@ -1,0 +1,18 @@
+---
+description: 约束 HydroDoc AI 的 LangGraph 有状态图逻辑编排
+globs: packages/backend/src/graph/**/*.ts
+---
+
+# LangGraph 状态机规则
+
+## 状态管理 (State)
+- 必须使用 `Annotation.Root` 定义。
+- 每个 Node 执行完后，必须返回状态的增量更新，禁止直接修改传入的 `state` 对象。
+
+## 节点开发 (Nodes)
+- **幂等性**: 确保 Node 在相同输入下结果稳定。
+- **结构化日志**: 每个 Node 必须首行打印：`console.log(`[Flow] Node: ${nodeName} | Thread: ${state.thread_id}`)`。
+
+## 边与条件 (Edges)
+- 循环逻辑必须包含 `revision_count` 计数器，超过 3 次循环必须强制路由至 `error_handler_node` 或人工干预。
+- `human_in_the_loop` 断点必须配合 `interruptAfter` 或特定的等待节点实现。

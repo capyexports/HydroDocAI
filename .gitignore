@@ -1,0 +1,46 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+*.tsbuildinfo
+.next
+out
+
+# Turbo
+.turbo
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+
+# Logs and debug
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS and editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE (uncomment if you don't commit workspace settings)
+# .idea
+# .vscode
+
+# Test and coverage
+coverage
+.nyc_output
+
+# Optional: local data or caches (uncomment if needed)
+# data/.cache
+# .cache

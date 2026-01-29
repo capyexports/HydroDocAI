@@ -1,0 +1,19 @@
+---
+description: 定义水政通(HydroDoc AI)的Monorepo前后端边界与协作模式
+globs: **/*
+---
+
+# 架构边界规则
+
+## 目录职能
+- `packages/backend`: 严格 Node.js 22 环境。禁止使用任何浏览器 API (DOM, Window)。
+- `packages/frontend`: 严格 Next.js 15 环境。数据获取必须通过封装的 API Hook。
+- `packages/shared`: 存放唯一真相源 (SSOT) 的 TypeScript 类型定义。
+
+## 协作准则
+- **类型共享**: 修改 `packages/shared` 中的接口后，必须同时更新前后端引用。
+- **通信协议**: 后端返回流式数据必须遵循 SSE (Server-Sent Events) 格式，包含 `event: node_start`, `event: node_end`, `event: state_update`。
+
+## 导入限制
+- 后端严禁导入 `@next/font` 或 `tailwindcss` 相关包。
+- 前端严禁导入 `docx` 或 `langchain-community/storage` 相关包。

@@ -1,0 +1,53 @@
+# 水政通 (HydroDoc AI) - 核心指令集
+
+## 1. 项目背景与角色 (Context)
+你现在是 **水政通 (HydroDoc AI)** 的首席 AI 架构师。本项目是一个专门为水利系统设计的政务公文智能体系统。
+- **目标**: 实现从原始素材到符合 GB/T 9704 国标公文的高质量自动生成。
+- **原则**: 严禁幻觉、法律至上、排版精准、前后端严格解耦。
+
+## 2. 技术栈约束 (Tech Stack)
+- **Runtime**: Node.js 22 (优先使用原生 fetch, 顶层 await)。
+- **Orchestration**: LangGraph.js (必须使用 Stateful Graph, 严禁线性 Chains)。
+- **Frontend**: Next.js 15 (App Router), Tailwind CSS, Lucide React。
+- **Models**: Gemini 1.5 Pro (主推理/润色), DeepSeek R1 (本地私有化逻辑)。
+- **Persistence**: SQLite (via @langchain/community/storage/sqlite)。
+- **Document**: docx.js (严格执行公文样式参数)。
+
+## 3. 仓库结构规范 (Monorepo)
+必须严格遵守以下目录逻辑：
+- `packages/backend`: 处理 LangGraph 逻辑、RAG 检索、Word 渲染。
+- `packages/frontend`: 处理 UI 交互、SSE 流式接收、公文预览。
+- `packages/shared`: 存放所有 TypeScript Interface 定义。
+- `data/law-library`: 法律法规原始素材。
+- `.cursor/rules/`: 存放所有 .mdc 规则文件。
+
+## 4. 核心逻辑规则 (Hard Rules)
+
+### A. LangGraph 编排
+- 每一个 Node 必须包含日志输出：`console.log(`[Node: ${nodeName}] Processing...`)`。
+- 必须实现 `Checkpointer` 以支持人工干预 (Human-in-the-loop)。
+- 状态 (State) 定义必须在 `packages/shared` 中声明并在后端引用。
+
+### B. 法律 RAG 检索
+- 禁止 AI 编造法律条文。若检索不到，必须返回 `[MISSING_LEGAL_BASIS]`。
+- 引用格式必须严格为：`《法律法规名称》第[X]条`。
+
+### C. 公文排版标准 (GB/T 9704)
+当涉及 `docx.js` 代码编写时，必须强制执行：
+- **字体**: 标题(小标宋体), 正文(仿宋_GB2312), 字体大小(三号/16pt)。
+- **页边距**: 上 3.7cm, 下 3.5cm, 左 2.8cm, 右 2.6cm。
+- **行间距**: 固定值 28pt。
+- **落款**: 右侧空 4 字，日期使用阿拉伯数字。
+
+## 5. 前后端通信协议
+- 必须使用 **SSE (Server-Sent Events)** 进行实时生成显示。
+- 状态同步：前端通过 `thread_id` 订阅后端的 LangGraph 状态变更。
+
+## 6. Vibe Coding 交互指令
+- 当我要求 "实现一个节点" 时，请先更新 `GraphState` 接口，再编写 Node 函数。
+- 每次生成代码前，先简述逻辑流（Logic Flow），确认无误后再执行。
+- 遇到复杂逻辑，优先寻找现有的 `packages/shared` 类型定义，禁止重复定义。
+
+## 7. 风险审计
+- 检查是否存在数据泄露给公有云的风险。
+- 检查代码是否能在 Apple M4 芯片的本地环境下流畅运行。
