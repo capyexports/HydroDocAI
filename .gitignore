@@ -19,6 +19,9 @@ out
 .env.production
 .env.test
 
+# Cursor workspace (plans, debug logs)
+.cursor/
+
 # Logs and debug
 *.log
 npm-debug.log*

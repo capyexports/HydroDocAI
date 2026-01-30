@@ -1,7 +1,24 @@
-import express, { Request, Response } from "express";
+import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { waterDocumentGraph } from "./graph/workflow.js";
-import type { WaterDocumentState } from "@shared/index";
+import { readFileSync, existsSync } from "node:fs";
+import cors from "cors";
+import express, { Request, Response } from "express";
+import { waterDocumentGraph, exportedDocxBuffers } from "./graph/workflow.js";
+import type { WaterDocumentState } from "@hydrodocai/shared";
+
+function loadEnvFile(filePath: string): void {
+  if (!existsSync(filePath)) return;
+  const content = readFileSync(filePath, "utf8");
+  for (const line of content.split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+    if (match && !match[1].startsWith("#")) {
+      const value = match[2].replace(/^["']|["']$/g, "").trim();
+      if (!process.env[match[1]]) process.env[match[1]] = value;
+    }
+  }
+}
+loadEnvFile(path.resolve(process.cwd(), ".env"));
+if (!process.env.API_KEY) loadEnvFile(path.resolve(process.cwd(), "../../.env"));
 
 export { waterDocumentGraph };
 
@@ -20,6 +37,7 @@ export async function runWaterDocumentWorkflow(initial: WaterDocumentState) {
 export function createApp() {
   const app = express();
 
+  app.use(cors({ origin: process.env.CORS_ORIGIN ?? true }));
   app.use(express.json());
 
   app.get("/health", (_req, res) => {
@@ -35,6 +53,7 @@ export function createApp() {
     const body = (req.body ?? {}) as Partial<WaterDocumentState> & {
       rawInput?: string;
       threadId?: string;
+      documentType?: WaterDocumentState["documentType"];
     };
 
     const threadId = body.threadId || randomUUID();
@@ -46,6 +65,7 @@ export function createApp() {
       status: body.status ?? "idle",
       revisionCount: body.revisionCount ?? 0,
       threadId,
+      documentType: body.documentType,
     };
 
     const sendEvent = (event: "node_start" | "node_end" | "state_update" | "error" | "done", data: unknown) => {
@@ -96,6 +116,62 @@ export function createApp() {
       });
       res.end();
     }
+  });
+
+  /** Resume after human review: body { threadId, approved, documentContent? }. Continues from humanReviewNode to exportNode. */
+  app.post("/api/resume", async (req: Request, res: Response) => {
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+
+    const body = req.body as { threadId: string; approved: boolean; documentContent?: string };
+    const threadId = body?.threadId;
+    if (!threadId) {
+      res.status(400).json({ error: "threadId is required" });
+      return;
+    }
+
+    const sendEvent = (event: "node_start" | "node_end" | "state_update" | "error" | "done", data: unknown) => {
+      res.write(`event: ${event}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    try {
+      const update = body.approved === false && body.documentContent != null ? { documentContent: body.documentContent } : {};
+      const events = waterDocumentGraph.streamEvents(update, {
+        version: "v1",
+        configurable: { thread_id: threadId },
+      });
+
+      for await (const event of events) {
+        const { event: eventName } = event;
+        if (eventName === "on_node_start") {
+          sendEvent("node_start", { threadId, node: event.name, state: event.data?.input ?? null });
+        } else if (eventName === "on_node_end") {
+          sendEvent("node_end", { threadId, node: event.name, state: event.data?.output ?? null });
+          sendEvent("state_update", { threadId, state: event.data?.output ?? null });
+        }
+      }
+      sendEvent("done", { threadId });
+      res.end();
+    } catch (error) {
+      sendEvent("error", { threadId, message: error instanceof Error ? error.message : "Unknown error" });
+      res.end();
+    }
+  });
+
+  /** Download .docx for a completed thread. Returns 404 if not found. */
+  app.get("/api/download/:threadId", (req: Request, res: Response) => {
+    const threadId = req.params.threadId;
+    const buffer = exportedDocxBuffers.get(threadId);
+    if (!buffer) {
+      res.status(404).json({ error: "Document not found or not yet exported" });
+      return;
+    }
+    const docType = "公文";
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(docType)}-${threadId.slice(0, 8)}.docx"`);
+    res.send(buffer);
   });
 
   return app;

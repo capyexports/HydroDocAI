@@ -1,9 +1,25 @@
 /**
+ * Entities extracted from raw input (violation subject, time, place, behavior).
+ */
+export interface ExtractedEntities {
+  /** Violating party / subject */
+  subject?: string;
+  /** Time of violation */
+  time?: string;
+  /** Place of violation */
+  place?: string;
+  /** Description of violation */
+  violation?: string;
+}
+
+/**
  * Represents a single legal citation used in the generated document.
  */
 export interface LegalCitation {
   /** Name of the law or regulation, e.g. 《水法》 */
   title: string;
+  /** Article number for "第X条" formatting; optional if parsed from .md or inferred by LLM */
+  articleNumber?: number;
   /** Original text of the cited article */
   articleText: string;
 }
@@ -24,6 +40,14 @@ export interface WaterDocumentState {
   revisionCount: number;
   /** Identifier used to persist and track this document/thread across requests. */
   threadId: string;
+  /** Document type for drafting and export templates */
+  documentType?: '限期缴纳通知书' | '行政处罚决定书';
+  /** Entities extracted from rawInput (subject, time, place, violation) */
+  entities?: ExtractedEntities;
+  /** When true, graph should route to human review (e.g. after audit or revisionCount > 3) */
+  needsHumanReview?: boolean;
+  /** Reason shown to user for why human review was required */
+  humanReviewReason?: string;
   /** Index signature required by LangGraph's StateDefinition constraint. */
   [key: string]: unknown;
 }

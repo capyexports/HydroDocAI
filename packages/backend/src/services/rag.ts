@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { LegalCitation } from "@shared/index";
+import type { LegalCitation } from "@hydrodocai/shared";
 
 export interface RagSearchOptions {
   /** Maximum number of citations to return. */
@@ -20,6 +20,18 @@ export interface RagSearchResult {
 
 interface ScoredCitation extends LegalCitation {
   score: number;
+}
+
+/** Extract article number from a line like "第一条　..." or "第十条 ..." */
+function parseArticleNumber(line: string): number | undefined {
+  const match = line.match(/第([一二三四五六七八九十百千零\d]+)条/);
+  if (!match) return undefined;
+  const numStr = match[1];
+  const arabic = parseInt(numStr, 10);
+  if (!Number.isNaN(arabic)) return arabic;
+  // Simple Chinese number conversion for 一–十
+  const map: Record<string, number> = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+  return map[numStr] ?? undefined;
 }
 
 /**
@@ -86,8 +98,10 @@ export class RagService {
 
         if (normalizedLine.toLowerCase().includes(lowercaseQuery)) {
           const score = this.simpleKeywordScore(normalizedLine, lowercaseQuery);
+          const articleNumber = parseArticleNumber(normalizedLine);
           scored.push({
             title: lawTitle,
+            articleNumber,
             articleText: normalizedLine,
             score,
           });
