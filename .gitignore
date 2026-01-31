@@ -20,7 +20,9 @@ out
 .env.test
 
 # Cursor workspace (plans, debug logs)
-.cursor/
+.cursor/plans/
+.cursor/debug.log
+.cursor/logs/
 
 # Logs and debug
 *.log

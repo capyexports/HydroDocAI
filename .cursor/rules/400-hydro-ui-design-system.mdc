@@ -1,0 +1,60 @@
+---
+description: 强制执行“水政通 (HydroDoc AI)”视觉体系与水利政务 UI 标准
+globs: "packages/frontend/**/*.{tsx,jsx,ts,js,scss,css}"
+---
+
+# 水政通 (HydroDoc AI) UI/UX 开发规范
+
+## 1. 核心视觉约束 (Visual Constraints)
+- **品牌色调 (Water Affairs Palette)**: 
+  - **水政蓝 (Primary)**: `#1D63B8`（用于导航、主要按钮、法律条文高亮）。
+  - **警示红 (Alert)**: `#C62127`（用于违规事实、高风险审计项、驳回动作）。
+  - **生态绿 (Success)**: `#278B45`（用于合规校验通过、已归档状态）。
+  - **背景色**: 界面底色使用极浅灰 `#F8FAFC`，内容卡片使用纯白 `#FFFFFF`。
+- **庄重感布局 (Layout)**:
+  - **圆角**: 统一 `border-radius: 4px`。严禁使用超过 `8px` 的圆角及胶囊型设计。
+  - **边框**: 细线边框 `1px border-slate-200`，模拟公文纸张的分界感。
+- **字体 (Typography)**:
+  - UI 界面：`"Inter", "PingFang SC", "Microsoft YaHei", sans-serif`。
+  - **公文预览区**: 强制使用 ` FangSong_GB2312` (仿宋) 或 `STFangsong`。
+  - 字号：正文不低于 `14px`，重点阅读区建议 `16px`。
+
+## 2. AI Agent 交互规范 (Agentic UX)
+- **思考态展示**: 
+  - 当 LangGraph 处于运行状态时，必须展示带有 Node 名称的进度条或 Step 指示器。
+  - 节点的转换需伴随轻微的渐变动效，严禁僵硬切换。
+- **双视图对比 (Diff View)**:
+  - 起草与审计页面应采用“左右布局”或“上下对比”，左侧为 AI 生成稿，右侧为对应的《水法》条文依据。
+- **干预引导**:
+  - 当 `needsHumanReview` 为 true 时，审批按钮应带有呼吸灯动效，引导用户注意。
+
+## 3. 技术实现要求 (Technical Specs)
+- **组件库**: 优先基于 **Radix UI** 或 **Shadcn UI** 进行二次封装，确保无障碍支持。
+- **响应式**: 适配 1920x1080 办公桌面环境，侧边栏宽度固定为 `280px` 或可折叠。
+- **Tailwind 配置**: 必须在 `tailwind.config.ts` 中通过 `theme.extend` 配置 `water-blue` 和 `gov-red`。
+
+## 4. 典型结构示例 (Standard Template)
+
+```tsx
+// 水政通标准页面头部结构
+export const HydroHeader = () => {
+  return (
+    <header className="w-full border-b border-slate-200 bg-white px-6 py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="bg-[#1D63B8] p-1.5 rounded">
+             <WaterIcon className="text-white w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold text-slate-900">水政通 HydroDoc AI</h1>
+            <p className="text-xs text-slate-500">水政监察公文智能辅助系统</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <AgentStatusBadge /> {/* 显示当前 LangGraph 节点状态 */}
+          <UserAvatar name="长沙执法员" />
+        </div>
+      </div>
+    </header>
+  );
+};
