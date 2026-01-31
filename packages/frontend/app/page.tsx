@@ -5,15 +5,10 @@ import type { WaterDocumentState } from "@hydrodocai/shared";
 import { useGenerateStream } from "../hooks/useGenerateStream";
 import { useResumeStream } from "../hooks/useResumeStream";
 import { downloadDocx } from "../lib/downloadDocx";
-import { FileText, Loader2, Download, Check, Edit3 } from "lucide-react";
-
-const NODE_LABELS: Record<string, string> = {
-  draftNode: "起草中",
-  legalVerificationNode: "法律核验",
-  auditNode: "审计",
-  humanReviewNode: "人工审核",
-  exportNode: "导出中",
-};
+import { HydroHeader } from "../components/HydroHeader";
+import { StepIndicator, STEPS } from "../components/StepIndicator";
+import { ContentPreviewSkeleton } from "../components/ContentPreviewSkeleton";
+import { Download, Check, Edit3 } from "lucide-react";
 
 export default function HomePage() {
   const [rawInput, setRawInput] = useState("");
@@ -59,140 +54,154 @@ export default function HomePage() {
   };
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-6 flex items-center gap-2 text-2xl font-semibold text-slate-800">
-        <FileText className="h-7 w-7" />
-        水政通 (HydroDoc AI)
-      </h1>
+    <div className="min-h-screen">
+      <HydroHeader currentNode={streamState.currentNode} isStreaming={isStreaming} />
 
-      {/* Draft form */}
-      {streamState.status === "idle" && !threadId && (
-        <section className="mb-8 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <label className="mb-2 block text-sm font-medium text-slate-600">公文类型</label>
-          <select
-            value={documentType}
-            onChange={(e) => setDocumentType(e.target.value as WaterDocumentState["documentType"])}
-            className="mb-4 w-full rounded border border-slate-300 px-3 py-2 text-slate-800"
-          >
-            <option value="限期缴纳通知书">限期缴纳通知书</option>
-            <option value="行政处罚决定书">行政处罚决定书</option>
-          </select>
-          <label className="mb-2 block text-sm font-medium text-slate-600">原始素材（现场描述 / OCR / 笔录）</label>
-          <textarea
-            value={rawInput}
-            onChange={(e) => setRawInput(e.target.value)}
-            placeholder="请输入违规描述、时间、地点、主体等..."
-            rows={6}
-            className="mb-4 w-full rounded border border-slate-300 px-3 py-2 text-slate-800 placeholder:text-slate-400"
-          />
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!rawInput.trim() || isStreaming}
-            className="flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            开始生成
-          </button>
-        </section>
-      )}
-
-      {/* Progress */}
-      {(isStreaming || streamState.status === "done" || resumeState.status === "done") && (
-        <section className="mb-8 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-3 text-sm font-medium text-slate-600">当前进度</h2>
-          <p className="flex items-center gap-2 text-slate-800">
-            {isStreaming && <Loader2 className="h-4 w-4 animate-spin" />}
-            {streamState.currentNode
-              ? NODE_LABELS[streamState.currentNode] ?? streamState.currentNode
-              : status === "completed"
-                ? "已完成"
-                : "处理中..."}
-          </p>
-        </section>
-      )}
-
-      {/* Draft preview */}
-      {state?.documentContent && (
-        <section className="mb-8 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-3 text-sm font-medium text-slate-600">草案预览</h2>
-          <pre className="whitespace-pre-wrap rounded bg-slate-50 p-4 text-sm text-slate-800">
-            {state.documentContent}
-          </pre>
-        </section>
-      )}
-
-      {/* Human review */}
-      {isInterrupted && (
-        <section className="mb-8 rounded-lg border border-amber-200 bg-amber-50 p-6 shadow-sm">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-medium text-amber-800">
-            <Edit3 className="h-4 w-4" />
-            待人工确认
-          </h2>
-          {humanReviewReason && (
-            <p className="mb-4 text-sm text-amber-700">{humanReviewReason}</p>
-          )}
-          <textarea
-            value={editContent || (state?.documentContent ?? "")}
-            onChange={(e) => setEditContent(e.target.value)}
-            placeholder="可在此修改草案内容后提交..."
-            rows={6}
-            className="mb-4 w-full rounded border border-amber-300 bg-white px-3 py-2 text-slate-800"
-          />
-          <div className="flex gap-3">
+      <main className="mx-auto max-w-5xl px-4 py-6">
+        {/* Draft form */}
+        {streamState.status === "idle" && !threadId && (
+          <section className="mb-6 rounded-hydro border border-slate-200 bg-white p-6">
+            <label className="mb-2 block text-sm font-medium text-slate-600">公文类型</label>
+            <select
+              value={documentType}
+              onChange={(e) => setDocumentType(e.target.value as WaterDocumentState["documentType"])}
+              className="mb-4 w-full rounded-hydro border border-slate-200 px-3 py-2 text-slate-800"
+            >
+              <option value="限期缴纳通知书">限期缴纳通知书</option>
+              <option value="行政处罚决定书">行政处罚决定书</option>
+            </select>
+            <label className="mb-2 block text-sm font-medium text-slate-600">原始素材（现场描述 / OCR / 笔录）</label>
+            <textarea
+              value={rawInput}
+              onChange={(e) => setRawInput(e.target.value)}
+              placeholder="请输入违规描述、时间、地点、主体等..."
+              rows={6}
+              className="mb-4 w-full rounded-hydro border border-slate-200 px-3 py-2 text-slate-800 placeholder:text-slate-400"
+            />
             <button
               type="button"
-              onClick={handleApprove}
-              disabled={isStreaming}
-              className="flex items-center gap-2 rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
+              onClick={handleSubmit}
+              disabled={!rawInput.trim() || isStreaming}
+              className="flex items-center gap-2 rounded-hydro bg-water-blue px-4 py-2 text-white hover:opacity-90 disabled:opacity-50"
             >
-              {resumeState.status === "streaming" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              通过
+              开始生成
             </button>
+          </section>
+        )}
+
+        {/* Progress with step indicator */}
+        {(isStreaming || streamState.status === "done" || resumeState.status === "done") && (
+          <section className="mb-6 rounded-hydro border border-slate-200 bg-white p-6">
+            <h2 className="mb-3 text-sm font-medium text-slate-600">当前进度</h2>
+            <StepIndicator currentNode={streamState.currentNode} isCompleted={isCompleted} isStreaming={isStreaming} />
+          </section>
+        )}
+
+        {/* Content preview: placeholder (skeleton) or live content when SSE is active */}
+        {(isStreaming || streamState.status === "done" || resumeState.status === "done") && (
+          <section
+            className="mb-6 rounded-hydro border border-slate-200 bg-white p-6"
+            role="status"
+            aria-live="polite"
+            aria-label="内容预览"
+          >
+            <h2 className="mb-3 text-sm font-medium text-slate-600">内容预览</h2>
+            {state?.documentContent ? (
+              <pre className="whitespace-pre-wrap rounded-hydro border border-slate-200 bg-hydro-bg p-4 font-document text-base text-slate-800">
+                {state.documentContent}
+              </pre>
+            ) : (
+              <>
+                <p className="mb-3 text-sm text-slate-500 animate-pulse">
+                  正在生成…
+                  {streamState.currentNode && (
+                    <span className="ml-2 text-slate-600">
+                      （{STEPS.find((s) => s.key === streamState.currentNode)?.label ?? streamState.currentNode}）
+                    </span>
+                  )}
+                </p>
+                <ContentPreviewSkeleton lines={6} />
+              </>
+            )}
+          </section>
+        )}
+
+        {/* Human review: breathing animation on approve when needsHumanReview */}
+        {isInterrupted && (
+          <section className="mb-6 rounded-hydro border border-slate-200 bg-white p-6">
+            <h2 className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+              <Edit3 className="h-4 w-4 text-water-blue" aria-hidden />
+              待人工确认
+            </h2>
+            {humanReviewReason && (
+              <p className="mb-4 text-sm text-slate-600">{humanReviewReason}</p>
+            )}
+            <textarea
+              value={editContent || (state?.documentContent ?? "")}
+              onChange={(e) => setEditContent(e.target.value)}
+              placeholder="可在此修改草案内容后提交..."
+              rows={6}
+              className="mb-4 w-full rounded-hydro border border-slate-200 bg-white px-3 py-2 text-slate-800"
+            />
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleApprove}
+                disabled={isStreaming}
+                className={`flex items-center gap-2 rounded-hydro px-4 py-2 text-white disabled:opacity-50 ${
+                  needsHumanReview
+                    ? "animate-breathe bg-hydro-success hover:opacity-90"
+                    : "bg-hydro-success hover:opacity-90"
+                }`}
+              >
+                <Check className="h-4 w-4" aria-hidden />
+                通过
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitEdit}
+                disabled={isStreaming}
+                className="flex items-center gap-2 rounded-hydro border border-slate-200 bg-white px-4 py-2 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                修改后提交
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* Download: hydro-success */}
+        {isCompleted && threadId && (
+          <section className="mb-6 rounded-hydro border border-slate-200 bg-white p-6">
+            <h2 className="mb-3 text-sm font-medium text-slate-600">导出公文</h2>
             <button
               type="button"
-              onClick={handleSubmitEdit}
-              disabled={isStreaming}
-              className="flex items-center gap-2 rounded bg-amber-600 px-4 py-2 text-white hover:bg-amber-700 disabled:opacity-50"
+              onClick={handleDownload}
+              className="flex items-center gap-2 rounded-hydro bg-hydro-success px-4 py-2 text-white hover:opacity-90"
             >
-              修改后提交
+              <Download className="h-4 w-4" aria-hidden />
+              下载公文 (.docx)
             </button>
-          </div>
-        </section>
-      )}
+          </section>
+        )}
 
-      {/* Download */}
-      {isCompleted && threadId && (
-        <section className="mb-8 rounded-lg border border-green-200 bg-green-50 p-6 shadow-sm">
-          <h2 className="mb-3 text-sm font-medium text-green-800">导出公文</h2>
+        {/* Error: gov-red */}
+        {(streamState.status === "error" || resumeState.status === "error") && (
+          <section className="mb-6 rounded-hydro border border-gov-red/30 bg-gov-red/5 p-6 text-gov-red">
+            <p className="text-sm">{streamState.errorMessage ?? resumeState.errorMessage}</p>
+          </section>
+        )}
+
+        {/* Reset / New */}
+        {(streamState.status === "done" || isCompleted) && (
           <button
             type="button"
-            onClick={handleDownload}
-            className="flex items-center gap-2 rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+            onClick={handleReset}
+            className="rounded-hydro border border-slate-200 bg-white px-4 py-2 text-slate-700 hover:bg-slate-50"
           >
-            <Download className="h-4 w-4" />
-            下载公文 (.docx)
+            新建一篇
           </button>
-        </section>
-      )}
-
-      {/* Error */}
-      {(streamState.status === "error" || resumeState.status === "error") && (
-        <section className="mb-8 rounded-lg border border-red-200 bg-red-50 p-6 text-red-800">
-          <p>{streamState.errorMessage ?? resumeState.errorMessage}</p>
-        </section>
-      )}
-
-      {/* Reset / New */}
-      {(streamState.status === "done" || isCompleted) && (
-        <button
-          type="button"
-          onClick={handleReset}
-          className="rounded border border-slate-300 bg-white px-4 py-2 text-slate-700 hover:bg-slate-50"
-        >
-          新建一篇
-        </button>
-      )}
-    </main>
+        )}
+      </main>
+    </div>
   );
 }

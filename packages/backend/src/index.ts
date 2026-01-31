@@ -68,11 +68,12 @@ export function createApp() {
       documentType: body.documentType,
     };
 
-    const sendEvent = (event: "node_start" | "node_end" | "state_update" | "error" | "done", data: unknown) => {
-      const payload = JSON.stringify(data);
-      res.write(`event: ${event}\n`);
-      res.write(`data: ${payload}\n\n`);
-    };
+    const sendEvent = (event: "node_start" | "node_end" | "state_update" | "error" | "done", data: unknown): Promise<void> =>
+      new Promise((resolve, reject) => {
+        const payload = JSON.stringify(data);
+        res.write(`event: ${event}\n`);
+        res.write(`data: ${payload}\n\n`, (err) => (err ? reject(err) : resolve()));
+      });
 
     try {
       const events = waterDocumentGraph.streamEvents(initialState, {
@@ -82,39 +83,51 @@ export function createApp() {
         },
       });
 
+      /** Graph node names: LangGraph emits on_chain_start/on_chain_end, not on_node_*. */
+      const NODE_NAMES = new Set(["draftNode", "legalVerificationNode", "auditNode", "humanReviewNode", "exportNode"]);
+      /** Accumulate full state on backend so state_update always sends complete state (including documentContent). */
+      let accumulatedState: Record<string, unknown> = { ...initialState } as Record<string, unknown>;
+
       for await (const event of events) {
-        const { event: eventName } = event;
-
-        if (eventName === "on_node_start") {
-          sendEvent("node_start", {
+        const ev = event as { event?: string; name?: string; data?: Record<string, unknown> };
+        const eventName = ev.event;
+        const nodeName = ev.name;
+        if (eventName === "on_chain_start" && nodeName && NODE_NAMES.has(nodeName)) {
+          await sendEvent("node_start", {
             threadId,
-            node: event.name,
-            state: event.data?.input ?? null,
+            node: nodeName,
+            state: ev.data?.input ?? null,
           });
-        } else if (eventName === "on_node_end") {
-          sendEvent("node_end", {
+          await new Promise((r) => setImmediate(r));
+        } else if (eventName === "on_chain_end" && nodeName && NODE_NAMES.has(nodeName)) {
+          const dataObj = ev.data;
+          const output = (dataObj?.output ?? dataObj?.data ?? dataObj) ?? null;
+          const delta = output && typeof output === "object" ? (output as Record<string, unknown>) : {};
+          accumulatedState = { ...accumulatedState, ...delta };
+          await sendEvent("node_end", {
             threadId,
-            node: event.name,
-            state: event.data?.output ?? null,
+            node: nodeName,
+            state: accumulatedState,
           });
-
-          // Also emit a generic state update after each node completes.
-          sendEvent("state_update", {
+          await sendEvent("state_update", {
             threadId,
-            state: event.data?.output ?? null,
+            state: accumulatedState,
           });
+          await new Promise((r) => setImmediate(r));
         }
       }
 
-      sendEvent("done", { threadId });
+      await sendEvent("done", { threadId });
       res.end();
     } catch (error) {
-      // Ensure errors are also streamed to the client.
-      sendEvent("error", {
-        threadId,
-        message: error instanceof Error ? error.message : "Unknown error",
-      });
-      res.end();
+      try {
+        await sendEvent("error", {
+          threadId,
+          message: error instanceof Error ? error.message : "Unknown error",
+        });
+      } finally {
+        res.end();
+      }
     }
   });
 
@@ -143,13 +156,22 @@ export function createApp() {
         configurable: { thread_id: threadId },
       });
 
+      const NODE_NAMES = new Set(["draftNode", "legalVerificationNode", "auditNode", "humanReviewNode", "exportNode"]);
+      let accumulatedState: Record<string, unknown> = { ...update } as Record<string, unknown>;
+
       for await (const event of events) {
-        const { event: eventName } = event;
-        if (eventName === "on_node_start") {
-          sendEvent("node_start", { threadId, node: event.name, state: event.data?.input ?? null });
-        } else if (eventName === "on_node_end") {
-          sendEvent("node_end", { threadId, node: event.name, state: event.data?.output ?? null });
-          sendEvent("state_update", { threadId, state: event.data?.output ?? null });
+        const ev = event as { event?: string; name?: string; data?: Record<string, unknown> };
+        const eventName = ev.event;
+        const nodeName = ev.name;
+        if (eventName === "on_chain_start" && nodeName && NODE_NAMES.has(nodeName)) {
+          sendEvent("node_start", { threadId, node: nodeName, state: ev.data?.input ?? null });
+        } else if (eventName === "on_chain_end" && nodeName && NODE_NAMES.has(nodeName)) {
+          const dataObj = ev.data;
+          const output = (dataObj?.output ?? dataObj?.data ?? dataObj) ?? null;
+          const delta = output && typeof output === "object" ? (output as Record<string, unknown>) : {};
+          accumulatedState = { ...accumulatedState, ...delta };
+          sendEvent("node_end", { threadId, node: nodeName, state: accumulatedState });
+          sendEvent("state_update", { threadId, state: accumulatedState });
         }
       }
       sendEvent("done", { threadId });

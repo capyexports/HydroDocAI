@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { flushSync } from "react-dom";
 import type { WaterDocumentState } from "@hydrodocai/shared";
 import { getApiUrl } from "../lib/getApiUrl";
 
@@ -64,6 +65,8 @@ export function useGenerateStream() {
       let buffer = "";
       let eventType: SSEEventType = "state_update";
       let threadId: string | null = null;
+      /** Accumulate state in closure so it is not lost across React state updates / batching before "done". */
+      let accumulatedState: Partial<WaterDocumentState> | null = null;
 
       try {
         while (true) {
@@ -91,27 +94,36 @@ export function useGenerateStream() {
                 if (data.threadId) threadId = data.threadId;
 
                 if (eventType === "node_start") {
-                  setStreamState((s) => ({
-                    ...s,
-                    threadId: data.threadId ?? s.threadId,
-                    currentNode: data.node ?? null,
-                    state: data.state ?? s.state,
-                  }));
+                  if (data.state != null) accumulatedState = accumulatedState ? { ...accumulatedState, ...data.state } : { ...data.state };
+                  flushSync(() =>
+                    setStreamState((s) => ({
+                      ...s,
+                      threadId: data.threadId ?? s.threadId,
+                      currentNode: data.node ?? null,
+                      state: data.state != null ? { ...s.state, ...data.state } : s.state,
+                    }))
+                  );
                 } else if (eventType === "node_end" || eventType === "state_update") {
-                  setStreamState((s) => ({
-                    ...s,
-                    threadId: data.threadId ?? s.threadId,
-                    currentNode: eventType === "node_end" ? data.node ?? s.currentNode : s.currentNode,
-                    state: data.state ?? s.state,
-                  }));
+                  if (data.state != null) accumulatedState = accumulatedState ? { ...accumulatedState, ...data.state } : { ...data.state };
+                  flushSync(() =>
+                    setStreamState((s) => {
+                      const merged = data.state != null ? { ...s.state, ...data.state } : s.state;
+                      return {
+                        ...s,
+                        threadId: data.threadId ?? s.threadId,
+                        currentNode: eventType === "node_end" ? data.node ?? s.currentNode : s.currentNode,
+                        state: merged,
+                      };
+                    })
+                  );
                 } else if (eventType === "done") {
+                  const finalState = accumulatedState ? { ...accumulatedState, status: "completed" as const } : { status: "completed" as const };
                   setStreamState((s) => ({
                     ...s,
                     threadId: data.threadId ?? s.threadId,
                     status: "done",
                     currentNode: null,
-                    // Ensure graph state.status is "completed" so UI shows "已完成" even if last state_update was lost or reordered
-                    state: s.state ? { ...s.state, status: "completed" as const } : { status: "completed" as const },
+                    state: finalState,
                   }));
                   return;
                 } else if (eventType === "error") {
@@ -128,11 +140,12 @@ export function useGenerateStream() {
             }
           }
         }
+        const finalState = accumulatedState ? { ...accumulatedState, status: "completed" as const } : { status: "completed" as const };
         setStreamState((s) => ({
           ...s,
           status: "done",
           threadId: threadId ?? s.threadId,
-          state: s.state ? { ...s.state, status: "completed" as const } : { status: "completed" as const },
+          state: finalState,
         }));
       } catch (err) {
         setStreamState((s) => ({

@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --hydro-bg: #F8FAFC;
+    --water-blue: #1D63B8;
+    --gov-red: #C62127;
+    --hydro-success: #278B45;
+  }
+  body {
+    @apply bg-hydro-bg text-slate-900 font-sans antialiased;
+    font-size: 14px;
+  }
+}
