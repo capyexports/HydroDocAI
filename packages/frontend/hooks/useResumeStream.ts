@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { flushSync } from "react-dom";
 import type { WaterDocumentState } from "@hydrodocai/shared";
 import { getApiUrl } from "../lib/getApiUrl";
 
@@ -69,19 +70,23 @@ export function useResumeStream() {
                   node?: string;
                 };
                 if (eventType === "node_start") {
-                  if (data.state != null) accumulatedState = accumulatedState ? { ...accumulatedState, ...data.state } : { ...data.state };
-                  setResumeState((s) => ({
-                    ...s,
-                    currentNode: data.node ?? null,
-                    state: data.state != null ? { ...s.state, ...data.state } : s.state,
-                  }));
+                  if (data.state != null) accumulatedState = accumulatedState ? Object.assign({}, accumulatedState, data.state) : { ...data.state };
+                  flushSync(() =>
+                    setResumeState((s) => ({
+                      ...s,
+                      currentNode: data.node ?? null,
+                      state: data.state != null ? Object.assign({}, s.state ?? {}, data.state) : s.state,
+                    }))
+                  );
                 } else if (eventType === "node_end" || eventType === "state_update") {
-                  if (data.state != null) accumulatedState = accumulatedState ? { ...accumulatedState, ...data.state } : { ...data.state };
-                  setResumeState((s) => ({
-                    ...s,
-                    currentNode: eventType === "node_end" ? (data.node ?? s.currentNode) : s.currentNode,
-                    state: data.state != null ? { ...s.state, ...data.state } : s.state,
-                  }));
+                  if (data.state != null) accumulatedState = accumulatedState ? Object.assign({}, accumulatedState, data.state) : { ...data.state };
+                  flushSync(() =>
+                    setResumeState((s) => ({
+                      ...s,
+                      currentNode: eventType === "node_end" ? (data.node ?? s.currentNode) : s.currentNode,
+                      state: data.state != null ? Object.assign({}, s.state ?? {}, data.state) : s.state,
+                    }))
+                  );
                 } else if (eventType === "done") {
                   const finalState = accumulatedState ? { ...accumulatedState, status: "completed" as const } : { status: "completed" as const };
                   setResumeState((s) => ({

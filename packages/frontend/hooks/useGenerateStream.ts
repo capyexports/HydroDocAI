@@ -100,14 +100,14 @@ export function useGenerateStream() {
                       ...s,
                       threadId: data.threadId ?? s.threadId,
                       currentNode: data.node ?? null,
-                      state: data.state != null ? { ...s.state, ...data.state } : s.state,
+                      state: data.state != null ? { ...(s.state ?? {}), ...data.state } : s.state,
                     }))
                   );
                 } else if (eventType === "node_end" || eventType === "state_update") {
                   if (data.state != null) accumulatedState = accumulatedState ? { ...accumulatedState, ...data.state } : { ...data.state };
                   flushSync(() =>
                     setStreamState((s) => {
-                      const merged = data.state != null ? { ...s.state, ...data.state } : s.state;
+                      const merged = data.state != null ? { ...(s.state ?? {}), ...data.state } : s.state;
                       return {
                         ...s,
                         threadId: data.threadId ?? s.threadId,
