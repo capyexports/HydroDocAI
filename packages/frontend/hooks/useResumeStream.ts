@@ -22,7 +22,7 @@ export function useResumeStream() {
 
   const resume = useCallback(
     async (payload: { threadId: string; approved: boolean; documentContent?: string }) => {
-      setResumeState((s) => ({ ...s, status: "streaming", errorMessage: null }));
+      setResumeState((s) => ({ ...s, status: "streaming", errorMessage: null, currentNode: null }));
 
       const base = getApiUrl();
       const res = await fetch(`${base}/api/resume`, {
@@ -44,7 +44,8 @@ export function useResumeStream() {
       const decoder = new TextDecoder();
       let buffer = "";
       let eventType = "state_update";
-      let lastState: Partial<WaterDocumentState> | null = null;
+      /** Accumulate state in closure so final state is not lost to React batching (same as useGenerateStream). */
+      let accumulatedState: Partial<WaterDocumentState> | null = null;
 
       try {
         while (true) {
@@ -67,25 +68,27 @@ export function useResumeStream() {
                   message?: string;
                   node?: string;
                 };
-                if (data.state) lastState = data.state;
                 if (eventType === "node_start") {
+                  if (data.state != null) accumulatedState = accumulatedState ? { ...accumulatedState, ...data.state } : { ...data.state };
                   setResumeState((s) => ({
                     ...s,
                     currentNode: data.node ?? null,
                     state: data.state != null ? { ...s.state, ...data.state } : s.state,
                   }));
                 } else if (eventType === "node_end" || eventType === "state_update") {
+                  if (data.state != null) accumulatedState = accumulatedState ? { ...accumulatedState, ...data.state } : { ...data.state };
                   setResumeState((s) => ({
                     ...s,
                     currentNode: eventType === "node_end" ? (data.node ?? s.currentNode) : s.currentNode,
                     state: data.state != null ? { ...s.state, ...data.state } : s.state,
                   }));
                 } else if (eventType === "done") {
+                  const finalState = accumulatedState ? { ...accumulatedState, status: "completed" as const } : { status: "completed" as const };
                   setResumeState((s) => ({
                     ...s,
                     status: "done",
                     currentNode: null,
-                    state: lastState ?? s.state,
+                    state: finalState,
                   }));
                   return;
                 } else if (eventType === "error") {
@@ -103,7 +106,8 @@ export function useResumeStream() {
             }
           }
         }
-        setResumeState((s) => ({ ...s, status: "done", currentNode: null, state: lastState ?? s.state }));
+        const finalState = accumulatedState ? { ...accumulatedState, status: "completed" as const } : { status: "completed" as const };
+        setResumeState((s) => ({ ...s, status: "done", currentNode: null, state: finalState }));
       } catch (err) {
         setResumeState((s) => ({
           ...s,

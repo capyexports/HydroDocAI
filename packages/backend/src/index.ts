@@ -153,13 +153,25 @@ export function createApp() {
 
     try {
       const update = body.approved === false && body.documentContent != null ? { documentContent: body.documentContent } : {};
+      /** Seed accumulatedState from checkpoint so documentContent etc. persist after exportNode (which only returns { status: "completed" }). */
+      let accumulatedState: Record<string, unknown>;
+      try {
+        const snapshot = await waterDocumentGraph.getState({ configurable: { thread_id: threadId } });
+        const checkpointValues =
+          snapshot && typeof snapshot === "object" && "values" in snapshot
+            ? (snapshot as { values: Record<string, unknown> }).values
+            : {};
+        accumulatedState = { ...checkpointValues, ...update } as Record<string, unknown>;
+      } catch {
+        accumulatedState = { ...update } as Record<string, unknown>;
+      }
+
       const events = waterDocumentGraph.streamEvents(update, {
         version: "v1",
         configurable: { thread_id: threadId },
       });
 
       const NODE_NAMES = new Set(["draftNode", "legalVerificationNode", "auditNode", "humanReviewNode", "exportNode"]);
-      let accumulatedState: Record<string, unknown> = { ...update } as Record<string, unknown>;
 
       for await (const event of events) {
         const ev = event as { event?: string; name?: string; data?: Record<string, unknown> };
