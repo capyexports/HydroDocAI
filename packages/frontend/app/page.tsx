@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { use, useState } from "react";
 import type { WaterDocumentState } from "@hydrodocai/shared";
 import { useGenerateStream } from "../hooks/useGenerateStream";
 import { useResumeStream } from "../hooks/useResumeStream";
@@ -10,7 +10,10 @@ import { StepIndicator, STEPS } from "../components/StepIndicator";
 import { ContentPreviewSkeleton } from "../components/ContentPreviewSkeleton";
 import { Download, Check, Edit3 } from "lucide-react";
 
-export default function HomePage() {
+type HomePageProps = { searchParams?: Promise<Record<string, string | string[]>> };
+export default function HomePage(props: HomePageProps = {}) {
+  const searchParamsResolved = use(props.searchParams ?? Promise.resolve({}));
+  void searchParamsResolved;
   const [rawInput, setRawInput] = useState("");
   const [documentType, setDocumentType] = useState<WaterDocumentState["documentType"]>("限期缴纳通知书");
   const [editContent, setEditContent] = useState("");
