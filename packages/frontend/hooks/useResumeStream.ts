@@ -8,6 +8,8 @@ export interface ResumeStreamState {
   status: "idle" | "streaming" | "done" | "error";
   errorMessage: string | null;
   state: Partial<WaterDocumentState> | null;
+  /** Current graph node during resume stream; matches backend node_start/node_end for step indicator. */
+  currentNode: string | null;
 }
 
 export function useResumeStream() {
@@ -15,6 +17,7 @@ export function useResumeStream() {
     status: "idle",
     errorMessage: null,
     state: null,
+    currentNode: null,
   });
 
   const resume = useCallback(
@@ -59,17 +62,37 @@ export function useResumeStream() {
             }
             if (line.startsWith("data: ")) {
               try {
-                const data = JSON.parse(line.slice(6)) as { state?: Partial<WaterDocumentState>; message?: string };
+                const data = JSON.parse(line.slice(6)) as {
+                  state?: Partial<WaterDocumentState>;
+                  message?: string;
+                  node?: string;
+                };
                 if (data.state) lastState = data.state;
-                if (eventType === "state_update") {
-                  setResumeState((s) => ({ ...s, state: data.state ?? s.state }));
+                if (eventType === "node_start") {
+                  setResumeState((s) => ({
+                    ...s,
+                    currentNode: data.node ?? null,
+                    state: data.state != null ? { ...s.state, ...data.state } : s.state,
+                  }));
+                } else if (eventType === "node_end" || eventType === "state_update") {
+                  setResumeState((s) => ({
+                    ...s,
+                    currentNode: eventType === "node_end" ? (data.node ?? s.currentNode) : s.currentNode,
+                    state: data.state != null ? { ...s.state, ...data.state } : s.state,
+                  }));
                 } else if (eventType === "done") {
-                  setResumeState((s) => ({ ...s, status: "done", state: lastState ?? s.state }));
+                  setResumeState((s) => ({
+                    ...s,
+                    status: "done",
+                    currentNode: null,
+                    state: lastState ?? s.state,
+                  }));
                   return;
                 } else if (eventType === "error") {
                   setResumeState((s) => ({
                     ...s,
                     status: "error",
+                    currentNode: null,
                     errorMessage: data.message ?? "Unknown error",
                   }));
                   return;
@@ -80,7 +103,7 @@ export function useResumeStream() {
             }
           }
         }
-        setResumeState((s) => ({ ...s, status: "done", state: lastState ?? s.state }));
+        setResumeState((s) => ({ ...s, status: "done", currentNode: null, state: lastState ?? s.state }));
       } catch (err) {
         setResumeState((s) => ({
           ...s,
@@ -93,7 +116,7 @@ export function useResumeStream() {
   );
 
   const reset = useCallback(() => {
-    setResumeState({ status: "idle", errorMessage: null, state: null });
+    setResumeState({ status: "idle", errorMessage: null, state: null, currentNode: null });
   }, []);
 
   return { resumeState, resume, reset };

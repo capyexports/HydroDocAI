@@ -144,10 +144,12 @@ export function createApp() {
       return;
     }
 
-    const sendEvent = (event: "node_start" | "node_end" | "state_update" | "error" | "done", data: unknown) => {
-      res.write(`event: ${event}\n`);
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
-    };
+    const sendEvent = (event: "node_start" | "node_end" | "state_update" | "error" | "done", data: unknown): Promise<void> =>
+      new Promise((resolve, reject) => {
+        const payload = JSON.stringify(data);
+        res.write(`event: ${event}\n`);
+        res.write(`data: ${payload}\n\n`, (err) => (err ? reject(err) : resolve()));
+      });
 
     try {
       const update = body.approved === false && body.documentContent != null ? { documentContent: body.documentContent } : {};
@@ -164,21 +166,26 @@ export function createApp() {
         const eventName = ev.event;
         const nodeName = ev.name;
         if (eventName === "on_chain_start" && nodeName && NODE_NAMES.has(nodeName)) {
-          sendEvent("node_start", { threadId, node: nodeName, state: ev.data?.input ?? null });
+          await sendEvent("node_start", { threadId, node: nodeName, state: ev.data?.input ?? null });
+          await new Promise((r) => setImmediate(r));
         } else if (eventName === "on_chain_end" && nodeName && NODE_NAMES.has(nodeName)) {
           const dataObj = ev.data;
           const output = (dataObj?.output ?? dataObj?.data ?? dataObj) ?? null;
           const delta = output && typeof output === "object" ? (output as Record<string, unknown>) : {};
           accumulatedState = { ...accumulatedState, ...delta };
-          sendEvent("node_end", { threadId, node: nodeName, state: accumulatedState });
-          sendEvent("state_update", { threadId, state: accumulatedState });
+          await sendEvent("node_end", { threadId, node: nodeName, state: accumulatedState });
+          await sendEvent("state_update", { threadId, state: accumulatedState });
+          await new Promise((r) => setImmediate(r));
         }
       }
-      sendEvent("done", { threadId });
+      await sendEvent("done", { threadId });
       res.end();
     } catch (error) {
-      sendEvent("error", { threadId, message: error instanceof Error ? error.message : "Unknown error" });
-      res.end();
+      try {
+        await sendEvent("error", { threadId, message: error instanceof Error ? error.message : "Unknown error" });
+      } finally {
+        res.end();
+      }
     }
   });
 

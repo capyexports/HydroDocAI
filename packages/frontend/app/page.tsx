@@ -20,6 +20,9 @@ export default function HomePage() {
 
   const state = streamState.state ?? resumeState.state;
   const threadId = streamState.threadId;
+  /** Effective currentNode for header/step indicator: use resume's when resume is streaming. */
+  const currentNode =
+    resumeState.status === "streaming" ? resumeState.currentNode : streamState.currentNode;
   const needsHumanReview = state?.needsHumanReview === true;
   const humanReviewReason = state?.humanReviewReason;
   const status = state?.status;
@@ -55,7 +58,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
-      <HydroHeader currentNode={streamState.currentNode} isStreaming={isStreaming} />
+      <HydroHeader currentNode={currentNode} isStreaming={isStreaming} />
 
       <main className="mx-auto max-w-5xl px-4 py-6">
         {/* Draft form */}
@@ -93,7 +96,7 @@ export default function HomePage() {
         {(isStreaming || streamState.status === "done" || resumeState.status === "done") && (
           <section className="mb-6 rounded-hydro border border-slate-200 bg-white p-6">
             <h2 className="mb-3 text-sm font-medium text-slate-600">当前进度</h2>
-            <StepIndicator currentNode={streamState.currentNode} isCompleted={isCompleted} isStreaming={isStreaming} />
+            <StepIndicator currentNode={currentNode} isCompleted={isCompleted} isStreaming={isStreaming} />
           </section>
         )}
 
@@ -114,9 +117,9 @@ export default function HomePage() {
               <>
                 <p className="mb-3 text-sm text-slate-500 animate-pulse">
                   正在生成…
-                  {streamState.currentNode && (
+                  {currentNode && (
                     <span className="ml-2 text-slate-600">
-                      （{STEPS.find((s) => s.key === streamState.currentNode)?.label ?? streamState.currentNode}）
+                      （{STEPS.find((s) => s.key === currentNode)?.label ?? currentNode}）
                     </span>
                   )}
                 </p>
