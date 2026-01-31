@@ -36,6 +36,7 @@ export function useResumeStream() {
         setResumeState((s) => ({
           ...s,
           status: "error",
+          currentNode: null,
           errorMessage: res.statusText || "Resume failed",
         }));
         return;
@@ -117,6 +118,7 @@ export function useResumeStream() {
         setResumeState((s) => ({
           ...s,
           status: "error",
+          currentNode: null,
           errorMessage: err instanceof Error ? err.message : "Stream error",
         }));
       }

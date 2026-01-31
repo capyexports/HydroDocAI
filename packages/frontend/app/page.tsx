@@ -28,7 +28,9 @@ export default function HomePage() {
   const status = state?.status;
   const isCompleted = status === "completed";
   const isStreaming = streamState.status === "streaming" || resumeState.status === "streaming";
-  const isInterrupted = Boolean(threadId && needsHumanReview && streamState.status !== "error");
+  const isInterrupted = Boolean(
+    threadId && needsHumanReview && streamState.status !== "error" && resumeState.status !== "error"
+  );
 
   const handleSubmit = () => {
     if (!rawInput.trim() || isStreaming) return;

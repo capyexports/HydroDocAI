@@ -47,7 +47,7 @@ export function useGenerateStream() {
             : err instanceof Error
               ? err.message
               : "Request failed";
-        setStreamState((s) => ({ ...s, status: "error", errorMessage: msg }));
+        setStreamState((s) => ({ ...s, status: "error", currentNode: null, errorMessage: msg }));
         return;
       }
 
@@ -55,6 +55,7 @@ export function useGenerateStream() {
         setStreamState((s) => ({
           ...s,
           status: "error",
+          currentNode: null,
           errorMessage: res.statusText || "Request failed",
         }));
         return;
@@ -94,7 +95,7 @@ export function useGenerateStream() {
                 if (data.threadId) threadId = data.threadId;
 
                 if (eventType === "node_start") {
-                  if (data.state != null) accumulatedState = accumulatedState ? { ...accumulatedState, ...data.state } : { ...data.state };
+                  if (data.state != null) accumulatedState = accumulatedState ? Object.assign({}, accumulatedState, data.state) : Object.assign({}, data.state);
                   flushSync(() =>
                     setStreamState((s) => ({
                       ...s,
@@ -104,7 +105,7 @@ export function useGenerateStream() {
                     }))
                   );
                 } else if (eventType === "node_end" || eventType === "state_update") {
-                  if (data.state != null) accumulatedState = accumulatedState ? { ...accumulatedState, ...data.state } : { ...data.state };
+                  if (data.state != null) accumulatedState = accumulatedState ? Object.assign({}, accumulatedState, data.state) : Object.assign({}, data.state);
                   flushSync(() =>
                     setStreamState((s) => {
                       const merged = data.state != null ? { ...(s.state ?? {}), ...data.state } : s.state;
@@ -130,6 +131,7 @@ export function useGenerateStream() {
                   setStreamState((s) => ({
                     ...s,
                     status: "error",
+                    currentNode: null,
                     errorMessage: data.message ?? "Unknown error",
                   }));
                   return;
@@ -144,6 +146,7 @@ export function useGenerateStream() {
         setStreamState((s) => ({
           ...s,
           status: "done",
+          currentNode: null,
           threadId: threadId ?? s.threadId,
           state: finalState,
         }));
@@ -151,6 +154,7 @@ export function useGenerateStream() {
         setStreamState((s) => ({
           ...s,
           status: "error",
+          currentNode: null,
           errorMessage: err instanceof Error ? err.message : "Stream error",
         }));
       }
