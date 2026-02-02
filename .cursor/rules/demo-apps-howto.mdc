@@ -1,0 +1,85 @@
+---
+description: 面向其他 demo-app 仓库的编写与接入约定；本仓库需满足的 Dockerfile、Node 权限、端口与集成说明。
+globs: ["Dockerfile", "**/Dockerfile", "package.json", "README.md"]
+---
+
+# Demo-App 仓库编写指南（供其他 demo-app 仓库使用）
+
+本规则面向 **独立的 demo-app 仓库**：每个仓库是一个可单独构建、可被接入「网关 + 私有网络」演示栈的 Node 应用。仓库内只需关心 **Dockerfile、应用代码与约定**；接入到服务器时的 Compose、Nginx 由部署侧在演示栈中配置。
+
+## 1. 演示栈接入方式（供本仓库文档说明）
+
+- **架构**：网关（Nginx）唯一入口，本应用不对外暴露端口，仅通过内网被 Nginx 反向代理。
+- **对外访问**：部署后通过 `http://<服务器IP>:8811/<路径前缀>/` 访问（当前服务器端口 8811，未备案先 IP 访问）。
+- **集成方**：在演示栈（如 `/opt/demos/`）的 `docker-compose.yml` 与 `nginx/conf.d/` 中增加本应用对应的服务与反向代理配置。
+
+本仓库只需保证 **镜像可构建、监听端口与约定一致**，便于集成方按服务名与路径前缀接入。
+
+## 2. 本仓库必须满足的约定
+
+### 2.1 目录与入口
+
+- 仓库根或约定子目录下需包含：**Dockerfile**、**package.json**、应用入口（如 `server.js` 或构建产物目录）。
+- 应用监听端口建议 **3000**（或固定为某一端口，并在 README 中写明，供集成方配置 Nginx upstream）。
+
+### 2.2 Dockerfile
+
+- **FROM**：必须使用 Aliyun ACR 北京个人版、capyexports 命名空间下的 **base-node**：
+  - `FROM crpi-5nqoro6hoopis4cp.cn-beijing.personal.cr.aliyuncs.com/capyexports/base-node:latest`
+  - 可选按日期固定版本：`:YYYYMMDD`。
+- **npm install 权限**：base-node 默认 `USER node`，且 `WORKDIR /app` 属 root，直接 `RUN npm install` 会 EACCES。必须：
+  - 在 `COPY package*.json` 与 `RUN npm install` 前 **`USER root`**。
+  - 安装后 **`RUN npm install --omit=dev && chown -R node:node /app`**。
+  - 应用代码 **`COPY --chown=node:node . .`**，最后 **`USER node`** 与 **`CMD`**。
+- **多阶段**：若有构建步骤，Stage 2 基于上述 base-node，只拷贝产物与 production node_modules；运行态必须 **`USER node`**。
+- **缓存**：先 `COPY package*.json ./` 再 `npm ci` / `npm install`，再 COPY 源码。
+
+示例（单阶段、无构建）：
+
+```dockerfile
+FROM crpi-5nqoro6hoopis4cp.cn-beijing.personal.cr.aliyuncs.com/capyexports/base-node:latest
+WORKDIR /app
+
+USER root
+COPY package*.json ./
+RUN npm install --omit=dev && chown -R node:node /app
+
+COPY --chown=node:node . .
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+### 2.3 运行与权限
+
+- 最终 **`CMD`/入口必须以 `USER node` 运行**，禁止长期以 root 跑应用。
+- 应用监听地址建议 **`0.0.0.0:<端口>`**，以便容器内被 Nginx 访问。
+
+## 3. 本仓库建议提供的信息（便于集成到演示栈）
+
+在 **README** 或文档中建议写明，方便部署方在 Compose 与 Nginx 中配置：
+
+| 项目 | 说明 | 示例 |
+|------|------|------|
+| **建议服务名** | Compose 服务名，即 Nginx 内网解析主机名 | `my-demo` |
+| **监听端口** | 容器内应用监听端口 | `3000` |
+| **建议路径前缀** | Nginx location 路径 | `/my-demo/` |
+
+集成方将据此在演示栈中：
+- 在 `docker-compose.yml` 中增加本仓库的 build 与服务（仅 `expose`，不 `ports`，接入 `demo-net`，memory 512M，logging max-size 20m）。
+- 在 `nginx/conf.d/demos.conf` 增加 `upstream`（如 `server <服务名>:<端口>`）。
+- 在 `nginx/conf.d/default.conf` 增加 `location /<路径前缀>/`，`proxy_pass` 到该 upstream，并带标准头（Host、X-Real-IP、X-Forwarded-For、X-Forwarded-Proto；需 WebSocket 时加 Upgrade、Connection）。
+
+## 4. 本仓库检查清单
+
+| 项目 | 要求 |
+|------|------|
+| Dockerfile | FROM ACR base-node；npm install 前 USER root，安装后 chown -R node:node /app；最终 USER node |
+| 入口 | 有 package.json 与可执行入口（如 server.js 或 dist） |
+| 监听 | 应用监听 0.0.0.0:<端口>，EXPOSE 该端口 |
+| 文档 | README 中建议写明：建议服务名、监听端口、建议路径前缀（便于集成） |
+
+## 5. 相关规范
+
+- **架构与 Base 镜像**：`demo-architecture-standard.mdc`（若本仓库或演示栈规则中引用）。
+- **Node 非 root 用户权限**：`docker-node-user-permissions.mdc`。

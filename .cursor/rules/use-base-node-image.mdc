@@ -1,0 +1,60 @@
+---
+description: How demo projects use the capyexports base-node image (Node 22 Alpine from ACR).
+globs: ["Dockerfile", "**/Dockerfile", "**/deploy/**"]
+alwaysApply: false
+---
+
+# Using Base Node Image in Demo Projects
+
+When other demos need this repo's Node environment, they must **FROM the base image** instead of pulling the official Node image. This reuses layers and keeps builds consistent.
+
+## Base Image Reference
+
+- **Registry:** Aliyun ACR Beijing Personal
+- **Full image:** `crpi-5nqoro6hoopis4cp.cn-beijing.personal.cr.aliyuncs.com/capyexports/base-node`
+- **Tags:** `latest` or date `YYYYMMDD` (e.g. `20260201`)
+
+## Required in Demo Dockerfile
+
+1. **FROM** the base image (do not use `node:22-alpine` or other Node images):
+
+```dockerfile
+FROM crpi-5nqoro6hoopis4cp.cn-beijing.personal.cr.aliyuncs.com/capyexports/base-node:latest
+WORKDIR /app
+```
+
+2. **Non-root:** Keep `USER node` when running the app (base image already runs as `node`).
+3. **Copy with correct owner:** Use `COPY --chown=node:node` so files are readable by `node`.
+
+## Optional: Use pnpm in a Demo
+
+If the demo uses pnpm, install it in the **demo's Dockerfile** (not in the base image):
+
+```dockerfile
+FROM crpi-5nqoro6hoopis4cp.cn-beijing.personal.cr.aliyuncs.com/capyexports/base-node:latest
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@latest --activate
+COPY --chown=node:node . .
+RUN pnpm install --frozen-lockfile
+USER node
+CMD ["pnpm", "start"]
+```
+
+## Optional: Multi-stage Build
+
+Use multi-stage only when you need a build step; still base the final stage on this image:
+
+```dockerfile
+FROM crpi-5nqoro6hoopis4cp.cn-beijing.personal.cr.aliyuncs.com/capyexports/base-node:latest AS runner
+WORKDIR /app
+COPY --chown=node:node . .
+RUN npm ci --omit=dev
+USER node
+CMD ["node", "index.js"]
+```
+
+## Summary
+
+- Always `FROM` `.../capyexports/base-node:latest` (or `:YYYYMMDD`) in demos.
+- Do not pull or use `node:*` in demo Dockerfiles when this base is available.
+- Install pnpm only in demos that need it; keep the base image minimal.

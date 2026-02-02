@@ -1,0 +1,38 @@
+# Exclude env and secrets: never bake .env into images (base-docker-manager / demo-apps-howto).
+.env
+.env.*
+!.env.example
+
+# Dependencies and build caches (rebuilt in image)
+node_modules
+.pnpm-store
+.turbo
+
+# Build outputs (rebuilt in image)
+dist
+.next
+out
+*.tsbuildinfo
+
+# Git and IDE
+.git
+.gitignore
+.idea
+.vscode
+.cursor
+
+# Docs and dev-only (optional; uncomment to shrink context)
+# docs
+# .cursor
+# *.md
+# !README.md
+
+# Logs and local data
+*.log
+.cache
+coverage
+.nyc_output
+
+# OS
+.DS_Store
+Thumbs.db

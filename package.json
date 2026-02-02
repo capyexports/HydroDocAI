@@ -11,6 +11,8 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
+    "build:frontend": "turbo build --filter=@hydrodocai/frontend",
+    "build:backend": "turbo build --filter=@hydrodocai/backend",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck"
   },
