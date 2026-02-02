@@ -1,6 +1,6 @@
 # Docker 构建与 GitHub Actions 推送
 
-按照 [base-docker-manager](.cursor/rules/base-docker-manager.mdc)、[demo-apps-howto](.cursor/rules/demo-apps-howto.mdc)、[use-base-node-image](.cursor/rules/use-base-node-image.mdc) 编写 Dockerfile 与 GitHub Actions，将镜像推送到阿里云 ACR 上海。
+按照 [base-docker-manager](.cursor/rules/base-docker-manager.mdc)、[demo-apps-howto](.cursor/rules/demo-apps-howto.mdc)、[use-base-node-image](.cursor/rules/use-base-node-image.mdc) 编写 Dockerfile 与 GitHub Actions，将镜像推送到阿里云 ACR 北京个人版。
 
 ---
 
@@ -13,7 +13,7 @@
 
 - **构建上下文**：必须在**仓库根**执行，以便 COPY 到 `packages/`、`data/`、`pnpm-lock.yaml` 等。
 - **Base 镜像**：均使用 ACR 北京个人版 `capyexports/base-node:latest`（demo-apps-howto / use-base-node-image）。
-- **推送目标**：阿里云 ACR 上海 `registry.cn-shanghai.aliyuncs.com`（base-docker-manager）。
+- **推送目标**：阿里云 ACR 北京个人版 `crpi-5nqoro6hoopis4cp.cn-beijing.personal.cr.aliyuncs.com`（与 demo-apps-howto / use-base-node-image 一致）。
 
 ---
 
@@ -36,8 +36,8 @@ docker build -f packages/frontend/Dockerfile \
 ## 3. GitHub Actions 流水线
 
 - **工作流文件**：`.github/workflows/docker-push.yml`
-- **触发条件**：`master` / `main` 分支上 **Dockerfile** 或 **.github/workflows/** 变更时触发；也可手动 `workflow_dispatch`。
-- **逻辑**：登录 ACR 上海 → 构建 backend 与 frontend → 打标签 `:latest` 和 `:YYYYMMDD` → 推送 → `docker image prune -f`。
+- **触发条件**：`master` / `main` 分支上 **Dockerfile**、**packages/**、**data/**、**.github/workflows/docker-push.yml** 等变更时触发；**pull_request** 时仅构建不推送；也可手动 `workflow_dispatch`。
+- **逻辑**：push 时登录 ACR 北京个人版 → 构建 backend 与 frontend → 打标签 `:latest` 和 `:YYYYMMDD` → 推送 → `docker image prune -f`；PR 时仅构建并打 `:pr` 标签，不推送。
 
 ### 3.1 所需 Secrets（严禁硬编码）
 
@@ -45,16 +45,16 @@ docker build -f packages/frontend/Dockerfile \
 
 | Secret | 说明 |
 |--------|------|
-| `ACR_USERNAME` | 阿里云 ACR 上海登录用户名 |
-| `ACR_PASSWORD` | 阿里云 ACR 上海登录密码 |
+| `ACR_USERNAME` | 阿里云 ACR 北京个人版登录用户名 |
+| `ACR_PASSWORD` | 阿里云 ACR 北京个人版登录密码 |
 | `ACR_NAMESPACE` | ACR 命名空间（镜像路径为 `$REGISTRY/$ACR_NAMESPACE/hydrodocai-backend`） |
 
-推送后的镜像示例：
+推送后的镜像示例（ACR 北京个人版）：
 
-- `registry.cn-shanghai.aliyuncs.com/<ACR_NAMESPACE>/hydrodocai-backend:latest`
-- `registry.cn-shanghai.aliyuncs.com/<ACR_NAMESPACE>/hydrodocai-backend:20260131`
-- `registry.cn-shanghai.aliyuncs.com/<ACR_NAMESPACE>/hydrodocai-frontend:latest`
-- `registry.cn-shanghai.aliyuncs.com/<ACR_NAMESPACE>/hydrodocai-frontend:20260131`
+- `crpi-5nqoro6hoopis4cp.cn-beijing.personal.cr.aliyuncs.com/<ACR_NAMESPACE>/hydrodocai-backend:latest`
+- `crpi-5nqoro6hoopis4cp.cn-beijing.personal.cr.aliyuncs.com/<ACR_NAMESPACE>/hydrodocai-backend:20260131`
+- `crpi-5nqoro6hoopis4cp.cn-beijing.personal.cr.aliyuncs.com/<ACR_NAMESPACE>/hydrodocai-frontend:latest`
+- `crpi-5nqoro6hoopis4cp.cn-beijing.personal.cr.aliyuncs.com/<ACR_NAMESPACE>/hydrodocai-frontend:20260131`
 
 ### 3.2 前端构建时的 NEXT_PUBLIC_API_URL
 
