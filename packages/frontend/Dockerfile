@@ -6,14 +6,13 @@ ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 USER root
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY packages/frontend packages/frontend
 
-RUN corepack enable && corepack prepare pnpm@latest --activate \
+RUN corepack enable \
   && pnpm install --frozen-lockfile \
-  && pnpm build:frontend \
-  && pnpm prune --prod
+  && pnpm build:frontend
 
 RUN chown -R node:node /app
 
