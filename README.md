@@ -80,7 +80,7 @@ HydroDocAI/
 
 - **Product & roadmap**: `prd.md`
 - **Development notes**: `docs/development-issues.md`
-- **Deployment**: `docs/monorepo-separate-deployment.md` (frontend/backend split), `docs/edgeone-pages-deployment.md` (EdgeOne Pages), `docs/docker-env-config.md` (Docker & .env per packaging rules)
+- **Deployment**: `docs/monorepo-separate-deployment.md` (frontend/backend split), `docs/edgeone-pages-deployment.md` (EdgeOne Pages), `docs/docker-env-config.md` (Docker & .env), `docs/docker-build-and-ci.md` (Dockerfile & GitHub Actions push to ACR)
 - **Architecture / rules**: `.cursorrules` and `.cursor/rules/`
 
 ## License
