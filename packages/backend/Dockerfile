@@ -4,15 +4,14 @@ FROM crpi-5nqoro6hoopis4cp.cn-beijing.personal.cr.aliyuncs.com/capyexports/base-
 WORKDIR /app
 
 USER root
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY packages/backend packages/backend
 COPY data data
 
-RUN corepack enable && corepack prepare pnpm@latest --activate \
+RUN corepack enable \
   && pnpm install --frozen-lockfile \
-  && pnpm build:backend \
-  && pnpm prune --prod
+  && pnpm build:backend
 
 RUN chown -R node:node /app
 
