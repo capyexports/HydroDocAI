@@ -49,3 +49,5 @@ coverage
 # Optional: local data or caches (uncomment if needed)
 # data/.cache
 # .cache
+
+packages/frontend/next-env.d.ts
