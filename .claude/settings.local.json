@@ -19,7 +19,9 @@
       "Bash(packages/backend/node_modules/.bin/tsc -p packages/backend/tsconfig.json --noEmit)",
       "Bash(node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/bin/tsc:*)",
       "Bash(node:*)",
-      "Bash(wsl:*)"
+      "Bash(wsl:*)",
+      "Bash(pnpm add:*)",
+      "Bash(npx playwright:*)"
     ]
   }
 }

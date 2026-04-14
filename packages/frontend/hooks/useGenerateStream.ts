@@ -191,10 +191,14 @@ export function useGenerateStream() {
             }
           }
 
-          // Stream ended without a "done" event — treat as completed.
+          // Stream ended without a "done" event.
+          // If the workflow interrupted for human review, preserve the reviewing status
+          // rather than marking as completed — the graph is paused, not finished.
+          const isInterrupted = accumulatedState?.needsHumanReview === true;
+          const finalStatus = isInterrupted ? (accumulatedState?.status ?? "reviewing") : "completed";
           const finalState = accumulatedState
-            ? { ...accumulatedState, status: "completed" as const }
-            : { status: "completed" as const };
+            ? { ...accumulatedState, status: finalStatus as WaterDocumentState["status"] }
+            : { status: finalStatus as WaterDocumentState["status"] };
           setStreamState((s) => ({
             ...s,
             status: "done",

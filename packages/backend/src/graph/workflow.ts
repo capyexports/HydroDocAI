@@ -56,7 +56,30 @@ async function generateDraft(
 }
 
 /**
- * draftNode: entity extraction → RAG searchLaw → draft generation (LLM).
+ * Use LLM to check whether rawInput contains sufficient enforcement material.
+ * Returns { sufficient: boolean, reason?: string }.
+ */
+async function checkInputSufficiency(rawInput: string): Promise<{ sufficient: boolean; reason?: string }> {
+  const system = `你是水利执法文书助手。判断以下原始素材是否包含足够的执法要素（违规主体、违规行为描述至少其中之一），可以用于起草正式公文。
+只输出JSON：{ "sufficient": true } 或 { "sufficient": false, "reason": "具体原因，不超过30字" }`;
+  try {
+    const result = await chat([
+      { role: "system", content: system },
+      { role: "user", content: rawInput },
+    ]);
+    const parsed = JSON.parse(result.trim().replace(/^```json\s*|\s*```$/g, "")) as {
+      sufficient: boolean;
+      reason?: string;
+    };
+    return parsed;
+  } catch {
+    // If check fails, allow through to avoid blocking valid input
+    return { sufficient: true };
+  }
+}
+
+/**
+ * draftNode: input sufficiency check → entity extraction → RAG searchLaw → draft generation (LLM).
  */
 async function draftNode(state: GraphState): Promise<Partial<GraphState>> {
   console.log(`[Flow] Node: draftNode | Thread: ${state.threadId}`);
@@ -67,6 +90,17 @@ async function draftNode(state: GraphState): Promise<Partial<GraphState>> {
       documentContent: "",
       status: "drafting",
       revisionCount: (state.revisionCount ?? 0) + 1,
+    };
+  }
+
+  const sufficiency = await checkInputSufficiency(rawInput);
+  if (!sufficiency.sufficient) {
+    return {
+      documentContent: "",
+      status: "drafting",
+      revisionCount: (state.revisionCount ?? 0) + 1,
+      needsHumanReview: true,
+      humanReviewReason: sufficiency.reason ?? "原始素材不足，请补充违规主体、时间、地点或违规行为描述后重新提交。",
     };
   }
 
