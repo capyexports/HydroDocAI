@@ -49,6 +49,8 @@ export function createApp() {
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
+    // Disable Nagle algorithm so each res.write() is flushed immediately.
+    res.socket?.setNoDelay(true);
 
     const body = (req.body ?? {}) as Partial<WaterDocumentState> & {
       rawInput?: string;
@@ -72,7 +74,13 @@ export function createApp() {
       new Promise((resolve, reject) => {
         const payload = JSON.stringify(data);
         res.write(`event: ${event}\n`);
-        res.write(`data: ${payload}\n\n`, (err) => (err ? reject(err) : resolve()));
+        res.write(`data: ${payload}\n\n`, (err) => {
+          if (err) { reject(err); return; }
+          // Flush the socket buffer immediately so the client receives this event
+          // before the next write, preventing TCP coalescing of SSE frames.
+          (res as unknown as { flush?: () => void }).flush?.();
+          resolve();
+        });
       });
 
     try {
@@ -113,7 +121,11 @@ export function createApp() {
             threadId,
             state: accumulatedState,
           });
-          await new Promise((r) => setImmediate(r));
+          // Flush this node's events to the client before the next node starts.
+          // setImmediate alone is insufficient — Node's TCP stack may coalesce writes.
+          // 500ms > frontend NODE_MIN_DISPLAY_MS (400ms) so each node_end arrives
+          // in its own TCP segment and the step indicator advances one step at a time.
+          await new Promise((r) => setTimeout(r, 500));
         }
       }
 
@@ -136,6 +148,8 @@ export function createApp() {
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
+    // Disable Nagle algorithm so each res.write() is flushed immediately.
+    res.socket?.setNoDelay(true);
 
     const body = req.body as { threadId: string; approved: boolean; documentContent?: string };
     const threadId = body?.threadId;
@@ -148,7 +162,11 @@ export function createApp() {
       new Promise((resolve, reject) => {
         const payload = JSON.stringify(data);
         res.write(`event: ${event}\n`);
-        res.write(`data: ${payload}\n\n`, (err) => (err ? reject(err) : resolve()));
+        res.write(`data: ${payload}\n\n`, (err) => {
+          if (err) { reject(err); return; }
+          (res as unknown as { flush?: () => void }).flush?.();
+          resolve();
+        });
       });
 
     try {
@@ -187,7 +205,7 @@ export function createApp() {
           accumulatedState = { ...accumulatedState, ...delta };
           await sendEvent("node_end", { threadId, node: nodeName, state: accumulatedState });
           await sendEvent("state_update", { threadId, state: accumulatedState });
-          await new Promise((r) => setImmediate(r));
+          await new Promise((r) => setTimeout(r, 500));
         }
       }
       await sendEvent("done", { threadId });

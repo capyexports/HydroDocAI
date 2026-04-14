@@ -88,26 +88,54 @@ async function draftNode(state: GraphState): Promise<Partial<GraphState>> {
 }
 
 /**
- * legalVerificationNode: compare documentContent with legalCitations; set needsHumanReview if mismatch.
+ * legalVerificationNode: use LLM to semantically verify citations are accurately reflected
+ * in the document. Sets needsHumanReview=true if citations are missing, distorted, or
+ * the document lacks any legal basis (insufficientLegalGrounds).
  */
 async function legalVerificationNode(state: GraphState): Promise<Partial<GraphState>> {
   console.log(`[Flow] Node: legalVerificationNode | Thread: ${state.threadId}`);
 
   const content = state.documentContent ?? "";
   const citations = state.legalCitations ?? [];
-  const citationLines = citations.map(formatCitation);
   let needsHumanReview = false;
   let humanReviewReason: string | undefined;
 
-  for (const line of citationLines) {
-    const quoted = line.slice(line.indexOf('"'), line.lastIndexOf('"') + 1);
-    const snippet = quoted.slice(1, -1).slice(0, 50);
-    if (snippet && !content.includes(snippet)) {
+  if (citations.length === 0) {
+    // RAG found no legal grounds — always send to human review.
+    needsHumanReview = true;
+    humanReviewReason = "未检索到适用法律条文，法律依据不足，需人工核验。";
+  } else {
+    const citationLines = citations.map(formatCitation);
+    const system = `你是水利执法文书法律合规审核员。请审核以下公文草案是否准确反映了给定的法律依据。
+判断标准：
+1. 公文中每条法律依据的核心内容（法律名称、条款编号、主要违规情形和处罚权限）是否准确体现
+2. 不要求逐字一致，语义正确即可
+3. 如果有任何法律依据被遗漏或严重曲解，则判定为不合规
+
+只输出JSON：{ "compliant": true } 或 { "compliant": false, "reason": "具体原因" }`;
+    const userContent = `法律依据：\n${citationLines.join("\n")}\n\n公文草案：\n${content}`;
+    try {
+      const result = await chat([
+        { role: "system", content: system },
+        { role: "user", content: userContent },
+      ]);
+      const parsed = JSON.parse(result.trim().replace(/^```json\s*|\s*```$/g, "")) as {
+        compliant: boolean;
+        reason?: string;
+      };
+      if (!parsed.compliant) {
+        needsHumanReview = true;
+        humanReviewReason = parsed.reason ?? "AI 判定法律引用存在偏差，需人工核验。";
+      }
+    } catch {
+      // If LLM evaluation fails, default to human review to be safe.
       needsHumanReview = true;
-      humanReviewReason = "生成内容与检索法条原文不一致，需人工核验。";
-      break;
+      humanReviewReason = "法律合规性自动校验失败，需人工核验。";
     }
   }
+
+  // Yield to event loop so this node's SSE events flush before the next node starts.
+  await new Promise((r) => setImmediate(r));
 
   return {
     status: "reviewing",
@@ -125,6 +153,9 @@ async function auditNode(state: GraphState): Promise<Partial<GraphState>> {
   const revisionCount = (state.revisionCount ?? 0) + 1;
   const alreadyNeedsReview = state.needsHumanReview === true;
   const reason = state.humanReviewReason;
+
+  // Yield to event loop so this node's SSE events flush before the next node starts.
+  await new Promise((r) => setImmediate(r));
 
   if (revisionCount > 3) {
     return {
@@ -148,6 +179,8 @@ async function auditNode(state: GraphState): Promise<Partial<GraphState>> {
  */
 async function humanReviewNode(state: GraphState): Promise<Partial<GraphState>> {
   console.log(`[Flow] Node: humanReviewNode | Thread: ${state.threadId}`);
+  // Yield to event loop so this node's SSE events flush before interrupt takes effect.
+  await new Promise((r) => setImmediate(r));
   return { status: "reviewing" };
 }
 
