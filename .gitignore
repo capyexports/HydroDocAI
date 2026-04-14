@@ -46,6 +46,10 @@ Thumbs.db
 coverage
 .nyc_output
 
+# Playwright
+playwright-report
+test-results
+
 # Optional: local data or caches (uncomment if needed)
 # data/.cache
 # .cache
