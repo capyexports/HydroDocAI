@@ -21,7 +21,12 @@
       "Bash(node:*)",
       "Bash(wsl:*)",
       "Bash(pnpm add:*)",
-      "Bash(npx playwright:*)"
+      "Bash(npx playwright:*)",
+      "mcp__chrome-devtools__list_console_messages",
+      "Bash(xargs grep:*)",
+      "Read(//mnt/c/Users/C5371353/code/capyexports/**)",
+      "Bash(pnpm run:*)",
+      "Bash(pnpm --filter @hydrodocai/backend run dev)"
     ]
   }
 }
