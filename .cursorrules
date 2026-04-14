@@ -8,9 +8,9 @@
 ## 2. 技术栈约束 (Tech Stack)
 - **Runtime**: Node.js 22 (优先使用原生 fetch, 顶层 await)。
 - **Orchestration**: LangGraph.js (必须使用 Stateful Graph, 严禁线性 Chains)。
-- **Frontend**: Next.js 15 (App Router), Tailwind CSS, Lucide React。
-- **Models**: Gemini 1.5 Pro (主推理/润色), DeepSeek R1 (本地私有化逻辑)。
-- **Persistence**: SQLite (via @langchain/community/storage/sqlite)。
+- **Frontend**: Next.js 16 (App Router), Tailwind CSS, Lucide React。禁止引入 Radix UI / Shadcn UI 等外部组件库；全站使用现有 design token（`rounded-hydro`, `water-blue`, `hydro-success`, `gov-red`）。
+- **Models**: SiliconFlow API，默认模型 Qwen/Qwen3-8B（`API_KEY` 在 `.env`）。
+- **Persistence (当前)**: LangGraph MemorySaver（内存检查点）。计划迁移至 Supabase（见 `plan/2026-04-14-auth-dashboard-refactor.md`）。
 - **Document**: docx.js (严格执行公文样式参数)。
 
 ## 3. 仓库结构规范 (Monorepo)

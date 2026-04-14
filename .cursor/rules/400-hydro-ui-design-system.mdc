@@ -29,9 +29,9 @@ globs: "packages/frontend/**/*.{tsx,jsx,ts,js,scss,css}"
   - 当 `needsHumanReview` 为 true 时，审批按钮应带有呼吸灯动效，引导用户注意。
 
 ## 3. 技术实现要求 (Technical Specs)
-- **组件库**: 优先基于 **Radix UI** 或 **Shadcn UI** 进行二次封装，确保无障碍支持。
-- **响应式**: 适配 1920x1080 办公桌面环境，侧边栏宽度固定为 `280px` 或可折叠。
-- **Tailwind 配置**: 必须在 `tailwind.config.ts` 中通过 `theme.extend` 配置 `water-blue` 和 `gov-red`。
+- **组件库**: 禁止引入 Radix UI、Shadcn UI 等外部组件库；基于现有 design token 手写组件，保持代码库简洁。
+- **响应式**: 适配 1920x1080 办公桌面环境，最大内容宽度 `max-w-5xl`。
+- **Tailwind 配置**: `tailwind.config.ts` 中已通过 `theme.extend` 配置 `water-blue`、`gov-red`、`hydro-success`、`hydro-bg`、`rounded-hydro`。禁止在行内写 hex 色值，必须使用 token 名。
 
 ## 4. 典型结构示例 (Standard Template)
 

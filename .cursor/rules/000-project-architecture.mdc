@@ -7,13 +7,17 @@ globs: **/*
 
 ## 目录职能
 - `packages/backend`: 严格 Node.js 22 环境。禁止使用任何浏览器 API (DOM, Window)。
-- `packages/frontend`: 严格 Next.js 15 环境。数据获取必须通过封装的 API Hook。
+- `packages/frontend`: 严格 Next.js 16 (App Router) 环境。数据获取必须通过封装的 API Hook。
 - `packages/shared`: 存放唯一真相源 (SSOT) 的 TypeScript 类型定义。
+- `plan/`: 重构与功能规划文档（Markdown）。
+- `test/e2e/`: Playwright E2E 测试。
 
 ## 协作准则
 - **类型共享**: 修改 `packages/shared` 中的接口后，必须同时更新前后端引用。
-- **通信协议**: 后端返回流式数据必须遵循 SSE (Server-Sent Events) 格式，包含 `event: node_start`, `event: node_end`, `event: state_update`。
+- **通信协议**: 后端返回流式数据必须遵循 SSE (Server-Sent Events) 格式，包含 `event: node_start`, `event: node_end`, `event: state_update`, `event: done`, `event: error`。
+- **LangGraph 事件**: 监听 `on_chain_start` / `on_chain_end`（非 `on_node_*`），仅处理图节点名（draftNode / legalVerificationNode / auditNode / humanReviewNode / exportNode）。
 
 ## 导入限制
 - 后端严禁导入 `@next/font` 或 `tailwindcss` 相关包。
 - 前端严禁导入 `docx` 或 `langchain-community/storage` 相关包。
+- 前端禁止引入 Radix UI、Shadcn UI 等外部组件库；使用现有 design token。

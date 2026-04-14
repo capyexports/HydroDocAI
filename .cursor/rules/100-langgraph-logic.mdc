@@ -11,8 +11,14 @@ globs: packages/backend/src/graph/**/*.ts
 
 ## 节点开发 (Nodes)
 - **幂等性**: 确保 Node 在相同输入下结果稳定。
-- **结构化日志**: 每个 Node 必须首行打印：`console.log(`[Flow] Node: ${nodeName} | Thread: ${state.thread_id}`)`。
+- **结构化日志**: 每个 Node 必须首行打印：`console.log(\`[Flow] Node: ${nodeName} | Thread: ${state.threadId}\`)`。
+- **素材质量前置检查**: `draftNode` 必须在实体提取前调用 `checkInputSufficiency()`；输入不足时直接返回 `needsHumanReview: true`，不调用 LLM 生成草案。
 
 ## 边与条件 (Edges)
-- 循环逻辑必须包含 `revision_count` 计数器，超过 3 次循环必须强制路由至 `error_handler_node` 或人工干预。
-- `human_in_the_loop` 断点必须配合 `interruptAfter` 或特定的等待节点实现。
+- 循环逻辑必须包含 `revisionCount` 计数器，超过 3 次循环必须强制路由至人工干预（`humanReviewNode`）。
+- `humanReviewNode` 配合 `interruptAfter: ["humanReviewNode"]` 实现断点，前端通过 `POST /api/resume` 恢复。
+
+## SSE 事件规范
+- 后端通过 `streamEvents` 监听 `on_chain_start` / `on_chain_end`（非 `on_node_*`）。
+- 仅对以下节点名发送 SSE：`draftNode`、`legalVerificationNode`、`auditNode`、`humanReviewNode`、`exportNode`。
+- 后端维护 `accumulatedState`，每次 `on_chain_end` 合并 delta 后发送**完整 state** 的 `node_end` + `state_update`，确保前端始终能拿到 `documentContent`。
